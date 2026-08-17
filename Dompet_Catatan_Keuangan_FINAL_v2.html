@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dompet — Catatan Keuangan FINAL</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#718096;--primary:#2563eb;--income:#16a34a;--expense:#ef4444;--border:#e5e7eb}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:480px;margin:auto;min-height:100vh;padding:18px 16px 92px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.brand{font-size:24px;font-weight:800}.brand span{color:var(--primary)}
+.iconbtn{width:42px;height:42px;border:0;border-radius:14px;background:var(--card);font-size:19px;cursor:pointer;box-shadow:0 3px 14px #0000000d}
+.balance{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:22px;box-shadow:0 12px 28px #2563eb33}.balance small{opacity:.8}.amount{font-size:32px;font-weight:800;margin:6px 0 20px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#ffffff20;border-radius:15px;padding:12px}.stat small{display:block}.stat strong{font-size:16px}
+.section{display:flex;justify-content:space-between;align-items:center;margin:24px 2px 10px}.section h3{margin:0;font-size:17px}.link{color:var(--primary);font-size:13px}
+.tx{display:flex;align-items:center;gap:12px;background:var(--card);padding:13px;border-radius:17px;margin:9px 0;border:1px solid var(--border)}.cat{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:#eef2ff;font-size:21px}.txinfo{flex:1}.txinfo strong{display:block;font-size:14px}.txinfo small{color:var(--muted)}.money{font-weight:800;font-size:14px}.income{color:var(--income)}.expense{color:var(--expense)}
+.empty{text-align:center;color:var(--muted);padding:25px;background:var(--card);border-radius:18px}
+.fab{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);width:min(448px,calc(100% - 32px));height:54px;border:0;border-radius:18px;background:var(--primary);color:white;font-size:16px;font-weight:800;box-shadow:0 10px 25px #2563eb44;cursor:pointer}
+.modal{display:none;position:fixed;inset:0;background:#0007;align-items:flex-end;justify-content:center}.modal.show{display:flex}.sheet{width:min(480px,100%);background:var(--card);border-radius:25px 25px 0 0;padding:20px}.sheet h2{margin:0 0 15px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{margin-bottom:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}.field input,.field select{width:100%;padding:13px;border:1px solid var(--border);border-radius:13px;background:var(--bg);color:var(--text);font-size:14px}.actions{display:flex;gap:10px;margin-top:8px}.actions button{flex:1;padding:13px;border:0;border-radius:13px;font-weight:700;cursor:pointer}.cancel{background:var(--bg)}.save{background:var(--primary);color:#fff}
+.dark{--bg:#0f172a;--card:#172033;--text:#f8fafc;--muted:#94a3b8;--border:#263247}.dark .iconbtn,.dark .tx{box-shadow:none}.dark .field input,.dark .field select{background:#0f172a}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand">💰 <span>Dompet</span></div>
+    <button class="iconbtn" id="theme">🌙</button>
+  </div>
+
+  <section class="balance">
+    <small>Total semua saldo</small>
+    <div class="amount" id="balance">Rp0</div>
+    <div class="stats">
+      <div class="stat"><small>↗ Pemasukan</small><strong id="income">Rp0</strong></div>
+      <div class="stat"><small>↘ Pengeluaran</small><strong id="expense">Rp0</strong></div>
+    </div>
+  </section>
+
+  <div class="section"><h3>Dompet & Rekening</h3></div>
+  <div id="accounts"></div>
+
+  <div style="font-size:12px;color:var(--muted);margin:4px 2px 16px">💡 Transfer antar rekening hanya memindahkan saldo, bukan pengeluaran.</div><div class="section"><h3>Transaksi</h3><span class="link" id="clear">Hapus semua</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px"><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="backup">📤 Backup</button><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="restoreBtn">📥 Restore</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px"><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="csvBtn">📄 CSV</button><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="installHelp">🏠 Shortcut</button></div><input id="restoreFile" type="file" accept=".json,application/json" style="display:none">
+  <div id="list"></div>
+</div></div>
+
+<button class="fab" id="add">＋ Tambah Transaksi</button>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h2 id="modalTitle">Tambah Transaksi</h2>
+    <div class="row">
+      <div class="field"><label>Jenis</label><select id="type"><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option><option value="transfer">Transfer</option></select></div>
+      <div class="field"><label>Tanggal</label><input id="date" type="date"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Dari / Rekening</label><select id="from"></select></div>
+      <div class="field"><label>Ke / Rekening</label><select id="to"></select></div>
+    </div>
+    <div class="field"><label>Kategori</label><select id="category"><option>Makanan</option><option>Transportasi</option><option>Belanja</option><option>Tagihan</option><option>Gaji</option><option>Bonus</option><option>Tabungan</option><option>Lainnya</option></select></div>
+    <div class="field"><label>Keterangan</label><input id="note" placeholder="Contoh: Gaji bulan ini / Jajan QRIS"></div>
+    <div class="field"><label>Nominal</label><input id="amount" type="number" inputmode="numeric" placeholder="50000"></div>
+    <div class="actions"><button class="cancel" id="cancel">Batal</button><button class="save" id="save">Simpan</button></div>
+  </div>
+</div>
+
+<div class="modal" id="editModal">
+  <div class="sheet">
+    <h2>Edit Transaksi</h2>
+    <div class="row">
+      <div class="field"><label>Jenis</label><select id="editType"><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option><option value="transfer">Transfer</option></select></div>
+      <div class="field"><label>Tanggal</label><input id="editDate" type="date"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Rekening / Dari</label><select id="editFrom"></select></div>
+      <div class="field"><label>Ke</label><select id="editTo"></select></div>
+    </div>
+    <div class="field"><label>Kategori</label><select id="editCategory"><option>Makanan</option><option>Transportasi</option><option>Belanja</option><option>Tagihan</option><option>Gaji</option><option>Bonus</option><option>Tabungan</option><option>Lainnya</option></select></div>
+    <div class="field"><label>Keterangan</label><input id="editNote"></div>
+    <div class="field"><label>Nominal</label><input id="editAmount" type="number" inputmode="numeric"></div>
+    <div class="actions"><button class="cancel" id="editCancel">Batal</button><button class="save" id="editSave">Simpan Perubahan</button></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const accounts=['BCA','SeaBank','Bank Jago','Cash'];
+const icons={BCA:'🏦',SeaBank:'🏦','Bank Jago':'🐦',Cash:'💵'};
+const cats={Makanan:'🍜',Transportasi:'🚌',Belanja:'🛍️',Tagihan:'🧾',Gaji:'💼',Bonus:'🎁',Tabungan:'💰',Lainnya:'📌'};
+let data=JSON.parse(localStorage.getItem('dompet-v2')||'[]');
+
+function rupiah(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+
+function balances(){
+ const b={}; accounts.forEach(a=>b[a]=0);
+ data.forEach(x=>{
+   if(x.type==='transfer'){b[x.from]-=x.amount;b[x.to]+=x.amount}
+   else if(x.type==='income') b[x.from]+=x.amount;
+   else if(x.type==='expense') b[x.from]-=x.amount;
+ });
+ return b;
+}
+function render(){
+ const b=balances();
+ const total=Object.values(b).reduce((a,v)=>a+v,0);
+ const inc=data.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0);
+ const exp=data.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
+ $('balance').textContent=rupiah(total);$('income').textContent=rupiah(inc);$('expense').textContent=rupiah(exp);
+ $('accounts').innerHTML=accounts.map(a=>`<div class="tx"><div class="cat">${icons[a]}</div><div class="txinfo"><strong>${a}</strong><small>${a==='Cash'?'Uang tunai':'Saldo rekening'}</small></div><div class="money ${b[a]<0?'expense':'income'}">${rupiah(b[a])}</div></div>`).join('');
+
+ const groups={};
+ data.slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(x=>(groups[x.date]??=[]).push(x));
+ $('list').innerHTML=data.length?Object.entries(groups).map(([date,items])=>{
+   const incDay=items.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0);
+   const expDay=items.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
+   const net=incDay-expDay;
+   const label=new Date(date+'T00:00:00').toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+   return `<div class="section" style="margin-top:18px"><h3>📅 ${label}</h3><span class="link ${net>=0?'income':'expense'}">${net>=0?'+':''}${rupiah(net)}</span></div>`+
+   items.map(x=>{
+     let title,sub,cls='';
+     if(x.type==='transfer'){title='Transfer';sub=`${x.from} → ${x.to}`;cls='';}
+     else {title=x.note||x.category;sub=`${x.category} · ${x.from}`;cls=x.type;}
+     const sign=x.type==='income'?'+':x.type==='expense'?'-':'↔';
+     const idx=data.indexOf(x);
+     return `<div class="tx"><div class="cat">${x.type==='transfer'?'↔':cats[x.category]||'📌'}</div><div class="txinfo"><strong>${esc(title)}</strong><small>${esc(sub)}</small></div><div class="money ${cls}">${sign} ${rupiah(x.amount)}</div><button class="iconbtn txmenu" data-index="${idx}" style="width:36px;height:36px;font-size:16px;box-shadow:none">⋮</button></div>`;
+   }).join('')+
+   `<div style="display:flex;justify-content:space-between;padding:5px 4px 2px;font-size:12px;color:var(--muted)"><span>Pemasukan ${rupiah(incDay)}</span><span>Pengeluaran ${rupiah(expDay)}</span></div>`;
+ }).join(''):'<div class="empty">Belum ada transaksi.<br>Catat gaji, transfer, tabungan, atau pengeluaranmu.</div>';
+ localStorage.setItem('dompet-v2',JSON.stringify(data));
+}
+function fillAccounts(){
+ $('from').innerHTML=accounts.map(a=>`<option value="${a}">${icons[a]} ${a}</option>`).join('');
+ $('to').innerHTML=accounts.map(a=>`<option value="${a}">${icons[a]} ${a}</option>`).join('');
+}
+function setMode(){
+ const transfer=$('type').value==='transfer';
+ $('to').parentElement.style.display=transfer?'block':'none';
+ $('category').parentElement.style.display=transfer?'none':'block';
+ $('from').previousElementSibling.textContent=transfer?'Dari / Rekening':'Rekening';
+}
+$('add').onclick=()=>{
+ $('date').value=new Date().toISOString().slice(0,10);
+ $('type').value='expense';fillAccounts();setMode();
+ $('modal').classList.add('show');$('note').focus();
+};
+$('type').onchange=setMode;
+$('cancel').onclick=()=>$('modal').classList.remove('show');
+$('save').onclick=()=>{
+ const type=$('type').value, amount=Number($('amount').value), date=$('date').value;
+ const from=$('from').value,to=$('to').value;
+ if(!amount||amount<=0||!date)return alert('Lengkapi tanggal dan nominal.');
+ if(type==='transfer'&&from===to)return alert('Rekening asal dan tujuan harus berbeda.');
+ data.push({type,date,amount,from,to:type==='transfer'?to:null,category:type==='transfer'?'Transfer':$('category').value,note:$('note').value.trim()});
+ $('note').value='';$('amount').value='';$('modal').classList.remove('show');render();
+};
+
+$('backup').onclick=()=>{
+  const payload={app:"Dompet",version:3,exportedAt:new Date().toISOString(),accounts,transactions:data};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download='backup-dompet-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+$('restoreBtn').onclick=()=>$('restoreFile').click();
+$('restoreFile').onchange=(e)=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const payload=JSON.parse(reader.result);
+      const imported=Array.isArray(payload)?payload:payload.transactions;
+      if(!Array.isArray(imported)) throw new Error();
+      const clean=imported.filter(x=>x && ['income','expense','transfer'].includes(x.type) && Number(x.amount)>0 && x.date);
+      if(!confirm(`Restore ${clean.length} transaksi? Data yang sekarang akan diganti dengan backup.`)) return;
+      data=clean; render(); alert('Restore berhasil. Data tersimpan otomatis.');
+    }catch(err){alert('File backup tidak valid.');}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+};
+
+$('csvBtn').onclick=()=>{
+  const rows=[['Tanggal','Jenis','Dari','Ke','Kategori','Keterangan','Nominal']];
+  data.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{
+    rows.push([x.date,x.type,x.from||'',x.to||'',x.category||'',x.note||'',x.amount]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url;a.download='catatan-keuangan.csv';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+$('installHelp').onclick=()=>{
+  alert('Untuk akses cepat: buka file Dompet di Chrome → menu ⋮ → pilih “Tambahkan ke layar utama” atau “Add to Home screen” jika tersedia.');
+};
+$('clear').onclick=()=>{if(data.length&&confirm('Hapus semua transaksi?')){data=[];render()}};
+$('theme').onclick=()=>{
+ document.body.classList.toggle('dark');
+ $('theme').textContent=document.body.classList.contains('dark')?'☀️':'🌙';
+ localStorage.setItem('dompet-dark',document.body.classList.contains('dark'));
+};
+if(localStorage.getItem('dompet-dark')==='true'){document.body.classList.add('dark');$('theme').textContent='☀️'}
+
+let editingIndex=null;
+function fillEditAccounts(){
+  $('editFrom').innerHTML=accounts.map(a=>`<option value="${a}">${icons[a]} ${a}</option>`).join('');
+  $('editTo').innerHTML=accounts.map(a=>`<option value="${a}">${icons[a]} ${a}</option>`).join('');
+}
+function setEditMode(){
+  const transfer=$('editType').value==='transfer';
+  $('editTo').parentElement.style.display=transfer?'block':'none';
+  $('editCategory').parentElement.style.display=transfer?'none':'block';
+}
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.txmenu');
+  if(!btn)return;
+  editingIndex=Number(btn.dataset.index);
+  const x=data[editingIndex]; if(!x)return;
+  const choice=confirm('Pilih OK untuk EDIT transaksi. Pilih Batal untuk opsi HAPUS.');
+  if(!choice){
+    if(confirm('Hapus transaksi ini saja?')){data.splice(editingIndex,1);editingIndex=null;render();}
+    return;
+  }
+  fillEditAccounts();
+  $('editType').value=x.type;$('editDate').value=x.date;$('editFrom').value=x.from||accounts[0];
+  $('editTo').value=x.to||accounts[1];$('editCategory').value=x.category||'Lainnya';
+  $('editNote').value=x.note||'';$('editAmount').value=x.amount;
+  setEditMode();$('editModal').classList.add('show');
+});
+$('editType').onchange=setEditMode;
+$('editCancel').onclick=()=>{$('editModal').classList.remove('show');editingIndex=null};
+$('editSave').onclick=()=>{
+  if(editingIndex===null)return;
+  const type=$('editType').value,amount=Number($('editAmount').value),date=$('editDate').value;
+  const from=$('editFrom').value,to=$('editTo').value;
+  if(!amount||amount<=0||!date)return alert('Lengkapi tanggal dan nominal.');
+  if(type==='transfer'&&from===to)return alert('Rekening asal dan tujuan harus berbeda.');
+  data[editingIndex]={type,date,amount,from,to:type==='transfer'?to:null,
+    category:type==='transfer'?'Transfer':$('editCategory').value,note:$('editNote').value.trim()};
+  $('editModal').classList.remove('show');editingIndex=null;render();
+};
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.txmenu');
+  if(!btn)return;
+  // Long-press-like simple menu: the edit modal opens first; delete is available via confirmation below.
+});
+
+fillAccounts();setMode();render();
+</script>
+</body>
+</html>
