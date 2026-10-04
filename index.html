@@ -1,17 +1,11 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta name="theme-color" content="#111827">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png" type="image/png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Dompet">
-<link rel="apple-touch-icon" href="icon-192.png">
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dompet — Catatan Keuangan</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>Dompet — Catatan Keuangan FINAL</title>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#718096;--primary:#2563eb;--income:#16a34a;--expense:#ef4444;--border:#e5e7eb}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text)}
@@ -46,11 +40,33 @@
   <div class="section"><h3>Dompet & Rekening</h3></div>
   <div id="accounts"></div>
 
-  <div style="font-size:12px;color:var(--muted);margin:4px 2px 16px">💡 Transfer antar rekening hanya memindahkan saldo, bukan pengeluaran.</div><div class="section"><h3>Transaksi</h3><span class="link" id="clear">Hapus semua</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px"><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="backup">📤 Backup</button><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="restoreBtn">📥 Restore</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px"><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="csvBtn">📄 CSV</button><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="installHelp">🏠 Shortcut</button></div><input id="restoreFile" type="file" accept=".json,application/json" style="display:none">
+  <div style="font-size:12px;color:var(--muted);margin:4px 2px 16px">💡 Transfer antar rekening hanya memindahkan saldo, bukan pengeluaran.</div>
+  <div class="section" style="margin-top:18px"><h3>🤝 Hutang Teman</h3><span class="link" id="addDebt">+ Tambah</span></div>
+  <div class="tx" style="margin-bottom:10px"><div class="cat">💰</div><div class="txinfo"><strong>Total masih harus diterima</strong><small id="debtTotal">Rp0</small></div></div>
+  <div id="debtList"></div><div class="section"><h3>Transaksi</h3><span class="link" id="clear">Hapus semua</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px"><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="backup">📤 Backup</button><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="restoreBtn">📥 Restore</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px"><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="csvBtn">📄 CSV</button><button class="iconbtn" style="width:100%;font-size:13px;font-weight:700" id="installHelp">🏠 Shortcut</button></div><input id="restoreFile" type="file" accept=".json,application/json" style="display:none">
   <div id="list"></div>
 </div></div>
 
 <button class="fab" id="add">＋ Tambah Transaksi</button>
+<div class="modal" id="debtModal">
+  <div class="sheet">
+    <h2 id="debtModalTitle">Tambah Hutang Teman</h2>
+    <div class="field"><label>Nama teman</label><input id="debtName" placeholder="Contoh: Andi"></div>
+    <div class="row"><div class="field"><label>Tanggal pinjam</label><input id="debtDate" type="date"></div><div class="field"><label>Nominal</label><input id="debtAmount" type="number" inputmode="numeric" placeholder="100000"></div></div>
+    <div class="field"><label>Keterangan</label><input id="debtNote" placeholder="Contoh: Pinjam untuk makan"></div>
+    <div class="actions"><button class="cancel" id="debtCancel">Batal</button><button class="save" id="debtSave">Simpan</button></div>
+  </div>
+</div>
+<div class="modal" id="paymentModal">
+  <div class="sheet">
+    <h2>Catat Pembayaran</h2>
+    <div class="field"><label>Nominal dibayar</label><input id="payAmount" type="number" inputmode="numeric" placeholder="50000"></div>
+    <div class="field"><label>Masuk ke rekening</label><select id="payAccount"></select></div>
+    <div class="field"><label>Tanggal</label><input id="payDate" type="date"></div>
+    <div class="actions"><button class="cancel" id="payCancel">Batal</button><button class="save" id="paySave">Simpan Pembayaran</button></div>
+  </div>
+</div>
+
 
 <div class="modal" id="modal">
   <div class="sheet">
@@ -94,6 +110,8 @@ const accounts=['BCA','SeaBank','Bank Jago','Cash'];
 const icons={BCA:'🏦',SeaBank:'🏦','Bank Jago':'🐦',Cash:'💵'};
 const cats={Makanan:'🍜',Transportasi:'🚌',Belanja:'🛍️',Tagihan:'🧾',Gaji:'💼',Bonus:'🎁',Tabungan:'💰',Lainnya:'📌'};
 let data=JSON.parse(localStorage.getItem('dompet-v2')||'[]');
+let debts=JSON.parse(localStorage.getItem('dompet-debts-v1')||'[]');
+let editingDebtIndex=null, paymentDebtIndex=null;
 
 function rupiah(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
@@ -107,6 +125,17 @@ function balances(){
  });
  return b;
 }
+function renderDebts(){
+ const total=debts.reduce((sum,d)=>sum+Math.max(0,Number(d.amount)-Number(d.paid||0)),0);
+ $('debtTotal').textContent=rupiah(total);
+ $('debtList').innerHTML=debts.length?debts.map((d,i)=>{
+   const remaining=Math.max(0,Number(d.amount)-Number(d.paid||0));
+   const status=remaining<=0?'🟢 Lunas':(Number(d.paid||0)>0?'🟡 Sebagian':'🔴 Belum lunas');
+   return `<div class="tx"><div class="cat">👤</div><div class="txinfo"><strong>${esc(d.name)}</strong><small>${status} · ${esc(d.note||'Tanpa keterangan')} · ${d.date}</small></div><div class="money ${remaining>0?'expense':'income'}">${rupiah(remaining)}</div><button class="iconbtn debtmenu" data-index="${i}" style="width:36px;height:36px;font-size:16px;box-shadow:none">⋮</button></div>`;
+ }).join(''):'<div class="empty">Belum ada catatan hutang teman.</div>';
+ localStorage.setItem('dompet-debts-v1',JSON.stringify(debts));
+}
+
 function render(){
  const b=balances();
  const total=Object.values(b).reduce((a,v)=>a+v,0);
@@ -134,6 +163,7 @@ function render(){
    `<div style="display:flex;justify-content:space-between;padding:5px 4px 2px;font-size:12px;color:var(--muted)"><span>Pemasukan ${rupiah(incDay)}</span><span>Pengeluaran ${rupiah(expDay)}</span></div>`;
  }).join(''):'<div class="empty">Belum ada transaksi.<br>Catat gaji, transfer, tabungan, atau pengeluaranmu.</div>';
  localStorage.setItem('dompet-v2',JSON.stringify(data));
+ renderDebts();
 }
 function fillAccounts(){
  $('from').innerHTML=accounts.map(a=>`<option value="${a}">${icons[a]} ${a}</option>`).join('');
@@ -162,7 +192,7 @@ $('save').onclick=()=>{
 };
 
 $('backup').onclick=()=>{
-  const payload={app:"Dompet",version:3,exportedAt:new Date().toISOString(),accounts,transactions:data};
+  const payload={app:"Dompet",version:3,exportedAt:new Date().toISOString(),accounts,transactions:data,debts:debts};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url;
@@ -180,7 +210,7 @@ $('restoreFile').onchange=(e)=>{
       if(!Array.isArray(imported)) throw new Error();
       const clean=imported.filter(x=>x && ['income','expense','transfer'].includes(x.type) && Number(x.amount)>0 && x.date);
       if(!confirm(`Restore ${clean.length} transaksi? Data yang sekarang akan diganti dengan backup.`)) return;
-      data=clean; render(); alert('Restore berhasil. Data tersimpan otomatis.');
+      data=clean; debts=Array.isArray(payload?.debts)?payload.debts.filter(d=>d&&d.name&&Number(d.amount)>0&&d.date).map(d=>({...d,paid:Number(d.paid||0)})):[]; render(); alert('Restore berhasil. Data tersimpan otomatis.');
     }catch(err){alert('File backup tidak valid.');}
     e.target.value='';
   };
@@ -251,6 +281,39 @@ document.addEventListener('click',e=>{
   const btn=e.target.closest('.txmenu');
   if(!btn)return;
   // Long-press-like simple menu: the edit modal opens first; delete is available via confirmation below.
+});
+
+$('addDebt').onclick=()=>{
+ $('debtName').value='';$('debtAmount').value='';$('debtNote').value='';$('debtDate').value=new Date().toISOString().slice(0,10);
+ editingDebtIndex=null;$('debtModalTitle').textContent='Tambah Hutang Teman';$('debtModal').classList.add('show');$('debtName').focus();
+};
+$('debtCancel').onclick=()=>{$('debtModal').classList.remove('show');editingDebtIndex=null};
+$('debtSave').onclick=()=>{
+ const name=$('debtName').value.trim(),amount=Number($('debtAmount').value),date=$('debtDate').value,note=$('debtNote').value.trim();
+ if(!name||!amount||amount<=0||!date)return alert('Lengkapi nama, tanggal, dan nominal.');
+ if(editingDebtIndex===null) debts.push({name,amount,paid:0,date,note}); else {const old=debts[editingDebtIndex];debts[editingDebtIndex]={...old,name,amount,paid:Math.min(Number(old.paid||0),amount),date,note};}
+ $('debtModal').classList.remove('show');editingDebtIndex=null;renderDebts();
+};
+function openPayment(i){
+ paymentDebtIndex=i; const d=debts[i]; const remaining=Math.max(0,d.amount-(d.paid||0));
+ if(remaining<=0)return alert('Hutang ini sudah lunas.');
+ $('payAmount').value='';$('payDate').value=new Date().toISOString().slice(0,10);$('payAccount').innerHTML=accounts.map(a=>`<option value="${a}">${icons[a]} ${a}</option>`).join('');$('paymentModal').classList.add('show');
+}
+$('payCancel').onclick=()=>{$('paymentModal').classList.remove('show');paymentDebtIndex=null};
+$('paySave').onclick=()=>{
+ if(paymentDebtIndex===null)return; const d=debts[paymentDebtIndex],remaining=d.amount-(d.paid||0),amt=Number($('payAmount').value),date=$('payDate').value,acct=$('payAccount').value;
+ if(!amt||amt<=0||amt>remaining||!date)return alert('Nominal pembayaran tidak valid.');
+ d.paid=(d.paid||0)+amt;
+ data.push({type:'income',date,amount:amt,from:acct,to:null,category:'Lainnya',note:`Pembayaran hutang ${d.name}`});
+ $('paymentModal').classList.remove('show');paymentDebtIndex=null;render();
+};
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('.debtmenu'); if(!btn)return; const i=Number(btn.dataset.index),d=debts[i]; if(!d)return;
+ const remaining=Math.max(0,d.amount-(d.paid||0));
+ const choice=confirm(`${d.name}\nSisa: ${rupiah(remaining)}\n\nOK = Catat pembayaran\nBatal = Menu lain`);
+ if(choice){openPayment(i);return;}
+ const action=confirm('OK = Edit hutang\nBatal = Hapus hutang');
+ if(action){editingDebtIndex=i;$('debtModalTitle').textContent='Edit Hutang Teman';$('debtName').value=d.name;$('debtAmount').value=d.amount;$('debtDate').value=d.date;$('debtNote').value=d.note||'';$('debtModal').classList.add('show');} else if(confirm('Hapus catatan hutang ini?')){debts.splice(i,1);renderDebts();}
 });
 
 fillAccounts();setMode();render();
